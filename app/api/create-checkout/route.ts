@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       price_data: { 
         currency: 'usd', 
         product_data: { name: 'BreakupAI Analysis', description: 'AI-powered relationship analysis' }, 
-        unit_amount: 299 
+        unit_amount: 499 
       }, 
       quantity: 1 
     }],
