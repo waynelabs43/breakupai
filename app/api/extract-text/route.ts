@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 
 export async function POST(req: NextRequest) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
   try {
     const formData = await req.formData()
     const file = formData.get('image') as File
@@ -11,17 +12,18 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer()
     const base64 = Buffer.from(bytes).toString('base64')
-    const mimeType = file.type || 'image/jpeg'
+    const mimeType = (file.type || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const response = await client.messages.create({
+      model: 'claude-opus-4-5',
+      max_tokens: 1500,
       messages: [
         {
           role: 'user',
           content: [
             {
-              type: 'image_url',
-              image_url: { url: `data:${mimeType};base64,${base64}`, detail: 'high' }
+              type: 'image',
+              source: { type: 'base64', media_type: mimeType, data: base64 }
             },
             {
               type: 'text',
@@ -39,11 +41,10 @@ Rules:
             }
           ]
         }
-      ],
-      max_tokens: 1500
+      ]
     })
 
-    const extracted = response.choices[0]?.message?.content?.trim()
+    const extracted = response.content[0]?.type === 'text' ? response.content[0].text.trim() : null
 
     if (!extracted || extracted === 'NOT_A_CONVERSATION') {
       return NextResponse.json({ error: "Couldn't find a conversation in that image. Try uploading a screenshot of your texts." }, { status: 422 })
