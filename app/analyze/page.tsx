@@ -37,6 +37,7 @@ const WANT_TO_KNOW = [
 ]
 
 type Stage = 'quiz1' | 'quiz2' | 'quiz3' | 'input' | 'analyzing' | 'teaser'
+type InputTab = 'paste' | 'upload'
 
 export default function AnalyzePage() {
   const [stage, setStage] = useState<Stage>('quiz1')
@@ -51,6 +52,11 @@ export default function AnalyzePage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [shareState, setShareState] = useState<'idle' | 'copied'>('idle')
+  const [inputTab, setInputTab] = useState<InputTab>('paste')
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null)
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null)
+  const [extracting, setExtracting] = useState(false)
+  const [extractError, setExtractError] = useState('')
 
   // Snippet animation
   useEffect(() => {
@@ -100,6 +106,32 @@ export default function AnalyzePage() {
     navigator.clipboard.writeText(shareText)
     setShareState('copied')
     setTimeout(() => setShareState('idle'), 3000)
+  }
+
+  const handleImageUpload = async (file: File) => {
+    setUploadedImage(file)
+    setExtractError('')
+    setConversation('')
+    const reader = new FileReader()
+    reader.onload = e => setUploadPreview(e.target?.result as string)
+    reader.readAsDataURL(file)
+
+    setExtracting(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      const res = await fetch('/api/extract-text', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to read image')
+      setConversation(data.conversation)
+      setInputTab('paste') // switch to paste tab so user can review/edit extracted text
+    } catch (err) {
+      setExtractError(err instanceof Error ? err.message : 'Could not read the image')
+      setUploadedImage(null)
+      setUploadPreview(null)
+    } finally {
+      setExtracting(false)
+    }
   }
 
   const personalizedPrompt = () => {
@@ -376,50 +408,132 @@ export default function AnalyzePage() {
       <div style={{ maxWidth: 560, width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <h1 style={{ fontSize: 30, fontWeight: 900, marginBottom: 8, letterSpacing: '-0.3px' }}>
-            Paste your <span style={{ background: 'linear-gradient(135deg, #a78bfa, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>conversation</span>
+            {inputTab === 'upload' ? (
+              <>Upload your <span style={{ background: 'linear-gradient(135deg, #a78bfa, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>screenshots</span></>
+            ) : (
+              <>Paste your <span style={{ background: 'linear-gradient(135deg, #a78bfa, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>conversation</span></>
+            )}
           </h1>
           <p style={{ color: '#555', fontSize: 14, maxWidth: 420, margin: '0 auto' }}>
             Based on what you told us, {personalizedPrompt()}
           </p>
         </div>
 
+        {/* Tabs */}
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4, marginBottom: 20, border: '1px solid rgba(255,255,255,0.07)' }}>
+          {(['paste', 'upload'] as InputTab[]).map(tab => (
+            <button key={tab} onClick={() => setInputTab(tab)} style={{
+              flex: 1, padding: '10px', borderRadius: 9, fontSize: 14, fontWeight: 600,
+              background: inputTab === tab ? 'rgba(124,58,237,0.25)' : 'transparent',
+              border: inputTab === tab ? '1px solid rgba(124,58,237,0.4)' : '1px solid transparent',
+              color: inputTab === tab ? '#a78bfa' : '#555',
+              cursor: 'pointer', transition: 'all 0.15s'
+            }}>
+              {tab === 'paste' ? '📋 Paste Text' : '📸 Upload Screenshot'}
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={handleSubmit}>
-          <textarea
-            value={conversation}
-            onChange={e => setConversation(e.target.value)}
-            placeholder={"Paste the conversation here...\n\nExample:\nMe: Hey, haven't heard from you\nThem: Been busy\nMe: Are we still on for Saturday?\nThem: Maybe, I'll let you know\n\nThe more you paste, the more accurate the analysis."}
-            rows={12}
-            style={{
-              width: '100%', padding: '18px 20px', borderRadius: 14, fontSize: 14,
-              fontFamily: 'monospace', lineHeight: 1.6, resize: 'none', outline: 'none',
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(124,58,237,0.3)',
-              color: '#e0e0f0', marginBottom: 12, boxSizing: 'border-box',
-              transition: 'border-color 0.2s'
-            }}
-            onFocus={e => (e.target.style.borderColor = 'rgba(124,58,237,0.7)')}
-            onBlur={e => (e.target.style.borderColor = 'rgba(124,58,237,0.3)')}
-          />
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#444', marginBottom: 16 }}>
-            <span style={{ color: conversation.length >= 50 ? '#22c55e' : '#444' }}>
-              {conversation.length} characters {conversation.length < 50 ? `(${50 - conversation.length} more needed)` : '✓'}
-            </span>
-            <span>Data never stored · Processed once</span>
-          </div>
+          {inputTab === 'paste' ? (
+            <>
+              <textarea
+                value={conversation}
+                onChange={e => setConversation(e.target.value)}
+                placeholder={"Paste the conversation here...\n\nExample:\nMe: Hey, haven't heard from you\nThem: Been busy\nMe: Are we still on for Saturday?\nThem: Maybe, I'll let you know\n\nThe more you paste, the more accurate the analysis."}
+                rows={12}
+                style={{
+                  width: '100%', padding: '18px 20px', borderRadius: 14, fontSize: 14,
+                  fontFamily: 'monospace', lineHeight: 1.6, resize: 'none', outline: 'none',
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(124,58,237,0.3)',
+                  color: '#e0e0f0', marginBottom: 12, boxSizing: 'border-box',
+                  transition: 'border-color 0.2s'
+                }}
+                onFocus={e => (e.target.style.borderColor = 'rgba(124,58,237,0.7)')}
+                onBlur={e => (e.target.style.borderColor = 'rgba(124,58,237,0.3)')}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#444', marginBottom: 16 }}>
+                <span style={{ color: conversation.length >= 50 ? '#22c55e' : '#444' }}>
+                  {conversation.length} characters {conversation.length < 50 ? `(${50 - conversation.length} more needed)` : '✓'}
+                </span>
+                <span>Data never stored · Processed once</span>
+              </div>
+            </>
+          ) : (
+            <div style={{ marginBottom: 16 }}>
+              {/* Drop zone */}
+              <label style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                padding: '36px 24px', borderRadius: 14, cursor: 'pointer',
+                background: 'rgba(255,255,255,0.02)', border: '2px dashed rgba(124,58,237,0.35)',
+                transition: 'all 0.2s', marginBottom: 12
+              }}
+              onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'rgba(124,58,237,0.7)' }}
+              onDragLeave={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,0.35)' }}
+              onDrop={e => {
+                e.preventDefault()
+                e.currentTarget.style.borderColor = 'rgba(124,58,237,0.35)'
+                const file = e.dataTransfer.files[0]
+                if (file && file.type.startsWith('image/')) handleImageUpload(file)
+              }}
+              >
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (file) handleImageUpload(file)
+                }} />
+                {extracting ? (
+                  <>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#a78bfa', marginBottom: 4 }}>Reading your screenshot...</div>
+                    <div style={{ fontSize: 13, color: '#444' }}>AI is extracting the conversation</div>
+                  </>
+                ) : uploadPreview ? (
+                  <>
+                    <img src={uploadPreview} alt="Uploaded screenshot" style={{ maxHeight: 180, maxWidth: '100%', borderRadius: 10, marginBottom: 12, objectFit: 'contain' }} />
+                    <div style={{ fontSize: 13, color: '#22c55e', fontWeight: 600 }}>✓ Screenshot uploaded — text extracted</div>
+                    <div style={{ fontSize: 12, color: '#444', marginTop: 4 }}>Switch to "Paste Text" tab to review & edit</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>📱</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#ccc', marginBottom: 4 }}>Drop screenshot here</div>
+                    <div style={{ fontSize: 13, color: '#555', marginBottom: 10 }}>or tap to choose from your photos</div>
+                    <div style={{ fontSize: 12, color: '#333' }}>Works with iMessage, WhatsApp, Instagram, Snapchat, Tinder, Hinge, and more</div>
+                  </>
+                )}
+              </label>
+
+              {extractError && (
+                <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: '#fc8181', fontSize: 14, marginBottom: 12 }}>
+                  {extractError}
+                </div>
+              )}
+
+              {uploadPreview && !extracting && (
+                <button type="button" onClick={() => { setUploadedImage(null); setUploadPreview(null); setConversation(''); setExtractError('') }}
+                  style={{ background: 'none', border: 'none', color: '#444', fontSize: 13, cursor: 'pointer', display: 'block', margin: '0 auto' }}>
+                  × Remove and try again
+                </button>
+              )}
+            </div>
+          )}
+
           {error && (
             <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: '#fc8181', fontSize: 14, marginBottom: 16 }}>
               {error}
             </div>
           )}
-          <button type="submit" disabled={loading || conversation.length < 50} style={{
+
+          <button type="submit" disabled={loading || conversation.length < 50 || extracting} style={{
             width: '100%', padding: '17px', borderRadius: 14, fontSize: 17, fontWeight: 800,
-            background: conversation.length >= 50 ? 'linear-gradient(135deg, #7c3aed, #db2777)' : '#111118',
-            color: conversation.length >= 50 ? '#fff' : '#333',
-            border: 'none', cursor: conversation.length >= 50 ? 'pointer' : 'not-allowed',
+            background: conversation.length >= 50 && !extracting ? 'linear-gradient(135deg, #7c3aed, #db2777)' : '#111118',
+            color: conversation.length >= 50 && !extracting ? '#fff' : '#333',
+            border: 'none', cursor: conversation.length >= 50 && !extracting ? 'pointer' : 'not-allowed',
             transition: 'all 0.2s',
-            boxShadow: conversation.length >= 50 ? '0 0 30px rgba(124,58,237,0.4)' : 'none',
+            boxShadow: conversation.length >= 50 && !extracting ? '0 0 30px rgba(124,58,237,0.4)' : 'none',
             letterSpacing: '-0.2px'
           }}>
-            {loading ? 'Preparing analysis...' : 'See What The AI Found →'}
+            {loading ? 'Preparing analysis...' : extracting ? 'Reading screenshot...' : 'See What The AI Found →'}
           </button>
           <p style={{ textAlign: 'center', fontSize: 13, color: '#333', marginTop: 10 }}>
             Free preview · <span style={{ textDecoration: 'line-through' }}>$12.99</span> $4.99 to unlock full results
