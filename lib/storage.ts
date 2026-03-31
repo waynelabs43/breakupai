@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const STORAGE_DIR = '/tmp/breakupgpt';
+const STORAGE_DIR = '/tmp/breakupai';
 
 function ensureDir() {
   if (!fs.existsSync(STORAGE_DIR)) {

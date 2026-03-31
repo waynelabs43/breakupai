@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'BreakupGPT — AI Relationship Analysis',
+  title: 'BreakupAI — AI Relationship Analysis',
   description: 'Find out who really has the power in your situationship.',
 }
 

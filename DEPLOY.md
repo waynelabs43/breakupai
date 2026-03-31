@@ -1,4 +1,4 @@
-# BreakupGPT — Deploy to Vercel (Step by Step)
+# BreakupAI — Deploy to Vercel (Step by Step)
 
 ## Prerequisites
 - GitHub account (free)
@@ -9,27 +9,27 @@
 ---
 
 ## Step 1 — Push to GitHub
-1. Go to github.com → New Repository → name it "breakupgpt" → Create
+1. Go to github.com → New Repository → name it "breakupai" → Create
 2. In terminal, run:
 ```
-cd /path/to/breakupgpt
+cd /path/to/breakupai
 git init
 git add .
-git commit -m "Initial BreakupGPT build"
-git remote add origin https://github.com/YOURUSERNAME/breakupgpt.git
+git commit -m "Initial BreakupAI build"
+git remote add origin https://github.com/YOURUSERNAME/breakupai.git
 git push -u origin main
 ```
 
 ## Step 2 — Deploy on Vercel
 1. Go to vercel.com → Add New Project
-2. Import your breakupgpt GitHub repo
+2. Import your breakupai GitHub repo
 3. Click Deploy (default settings are fine)
-4. Vercel will give you a URL like breakupgpt.vercel.app
+4. Vercel will give you a URL like breakupai.vercel.app
 
 ## Step 3 — Set Up Stripe
 1. Go to stripe.com → Developers → API Keys
 2. Copy your Publishable Key (pk_live_...) and Secret Key (sk_live_...)
-3. Create a product: Products → Add Product → "BreakupGPT Analysis" → $2.99 one-time
+3. Create a product: Products → Add Product → "BreakupAI Analysis" → $2.99 one-time
 
 ## Step 4 — Set Environment Variables on Vercel
 1. In Vercel → Your Project → Settings → Environment Variables
